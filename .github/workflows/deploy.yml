@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reset_db:
+        description: "Veritabanını sıfırla (TÜM tablolar ve veriler silinir)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,7 +36,11 @@ jobs:
           version: latest
       - name: Projeye bağlan
         run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Veritabanını sıfırla
+        if: ${{ inputs.reset_db == true }}
+        run: supabase db reset --linked --yes
       - name: Tabloları güncelle
+        if: ${{ inputs.reset_db != true }}
         run: supabase db push --password "$SUPABASE_DB_PASSWORD"
       - name: Gemini anahtarını sunucuya kaydet
         env:
