@@ -210,6 +210,11 @@ $('#authForm').addEventListener('submit',async e=>{
       if(pass!==$('#aPass2').value) return aErr('Şifreler aynı değil.');
       const {data,error}=await sb.auth.signUp({email,password:pass,options:{emailRedirectTo:redirectUrl()}});
       if(error) throw error;
+      // Supabase, kayıtlı bir e-posta için hata vermez; kimliksiz bir kullanıcı döndürür
+      if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
+        setAuthMode('login'); $('#aEmail').value=email;
+        return aErr('Bu e-postayla zaten bir hesap var. Giriş yap ya da "Şifremi unuttum"a dokun.');
+      }
       if(!data.session) aInfo('Hesabın oluşturuldu. E-postana gelen doğrulama linkine tıkla, sonra buradan giriş yap.');
     } else {
       const {error}=await sb.auth.signInWithPassword({email,password:pass});
