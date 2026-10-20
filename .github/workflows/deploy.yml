@@ -1,0 +1,73 @@
+name: Yayınla
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    name: Veritabanı ve okuma servisi
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    outputs:
+      key: ${{ steps.keys.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Projeye bağlan
+        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Tabloları güncelle
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Gemini anahtarını sunucuya kaydet
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: supabase secrets set --project-ref "$PROJECT_REF" GEMINI_API_KEY="$GEMINI_API_KEY"
+      - name: Fotoğraf okuma servisini yayınla
+        run: supabase functions deploy read-image --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+      - name: Uygulama anahtarını al
+        id: keys
+        run: |
+          key=$(supabase projects api-keys --project-ref "$PROJECT_REF" -o json \
+            | jq -r '[.[] | select(.type=="publishable" or .name=="anon")] | (map(select(.type=="publishable")) + .)[0].api_key')
+          test -n "$key" && test "$key" != "null"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+  pages:
+    name: Uygulamayı yayınla
+    needs: backend
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Siteyi hazırla
+        env:
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          KEY: ${{ needs.backend.outputs.key }}
+        run: |
+          mkdir _site
+          cp -r index.html app.js sw.js manifest.webmanifest icons _site/
+          printf 'window.YAKIT_CONFIG = { supabaseUrl: "https://%s.supabase.co", supabaseKey: "%s" };\n' "$PROJECT_REF" "$KEY" > _site/config.js
+          sed -i "s/yakit-v1/yakit-${GITHUB_SHA::7}/" _site/sw.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

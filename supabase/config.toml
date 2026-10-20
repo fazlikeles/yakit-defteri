@@ -1,0 +1,4 @@
+project_id = "yakit-defteri"
+
+[functions.read-image]
+verify_jwt = false

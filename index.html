@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Yakıt Defteri</title>
+<meta name="description" content="Yakıt fişini çek, km'yi gir; 100 km'de ortalama tüketimini ve harcamanı takip et.">
+<meta name="theme-color" content="#0f5f5a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Yakıt Defteri">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a single phone-width app column with a bottom tab bar; instrument-cluster feel, amber fuel-gauge accent on petrol blue-green neutrals */
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --surface2:#e3e9e8; --line:#d2dbda;
+  --fg:#11211f; --muted:#5b6d6a; --accent:#e08a00; --accent-ink:#1c1300; --petrol:#0f5f5a;
+  --good:#1f8a4c; --warn:#c2410c; --chart-grid:#dbe3e2;
+  --f-display:"Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1312; --surface:#121d1c; --surface2:#1a2826; --line:#253634;
+  --fg:#e6efed; --muted:#8fa3a0; --accent:#ffab2e; --accent-ink:#1c1300; --petrol:#4fc1b6;
+  --good:#4ade80; --warn:#fb923c; --chart-grid:#1f2f2d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1312; --surface:#121d1c; --surface2:#1a2826; --line:#253634;
+  --fg:#e6efed; --muted:#8fa3a0; --accent:#ffab2e; --accent-ink:#1c1300; --petrol:#4fc1b6;
+  --good:#4ade80; --warn:#fb923c; --chart-grid:#1f2f2d; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.app{max-width:440px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;position:relative}
+@media (min-width:640px){.app{border-left:1px solid var(--line);border-right:1px solid var(--line);background:var(--bg)}}
+.screen{flex:1;padding-block:16px 110px;padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+.screen[hidden]{display:none!important}
+
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1.1;margin:2px 0 0;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:600;font-size:17px;margin:0;letter-spacing:.01em}
+.car-chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 6px;font-size:13px;font-weight:600}
+.car-chip i{width:26px;height:26px;border-radius:50%;background:var(--petrol);display:grid;place-items:center}
+.car-chip svg{width:16px;height:16px;fill:var(--bg)}
+
+/* gauge hero */
+.cluster{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px 12px;align-items:center}
+.gauge{grid-row:span 2;position:relative;display:grid;place-items:center}
+.gauge svg{width:100%;max-width:170px;height:auto}
+.gauge .read{position:absolute;inset:auto 0 4% 0;text-align:center}
+.gauge .read b{font-family:var(--f-num);font-size:30px;font-weight:700;display:block;line-height:1}
+.gauge .read span{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.mini{display:flex;flex-direction:column;gap:2px}
+.mini b{font-family:var(--f-num);font-size:20px;font-weight:700}
+.mini small{color:var(--muted);font-size:12px}
+.delta{font-size:12px;font-weight:600}
+.delta.up{color:var(--warn)} .delta.down{color:var(--good)}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:12px;color:var(--muted);font-weight:600}
+.tile .v{font-family:var(--f-num);font-size:19px;font-weight:700}
+.tile .s{font-size:12px;color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 14px 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.panel-head .num{font-size:13px;color:var(--muted)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart text{fill:var(--muted);font-family:var(--f-num);font-size:10px}
+.chart .grid{stroke:var(--chart-grid);stroke-width:1}
+.chart .line{fill:none;stroke:var(--petrol);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.chart .area{fill:var(--petrol);opacity:.12}
+.chart .avg{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4}
+.chart .dot{fill:var(--surface);stroke:var(--petrol);stroke-width:2}
+.chart .end{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.chart .bar{fill:var(--petrol);opacity:.85}
+.chart .bar.cur{fill:var(--accent);opacity:1}
+.chart .lbl{fill:var(--fg);font-weight:700}
+.seg{display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+
+/* fills list */
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.row{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.date{background:var(--surface2);border-radius:10px;text-align:center;padding:4px 0;line-height:1.1}
+.date b{display:block;font-family:var(--f-num);font-size:16px}
+.date small{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.05em}
+.row .mid{min-width:0}
+.row .mid b{font-weight:600;font-size:14px}
+.row .mid div{font-size:12px;color:var(--muted)}
+.row .right{text-align:right}
+.row .right b{font-family:var(--f-num);font-size:15px}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;font-family:var(--f-num)}
+.pill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.pill.bad{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.pill.base{background:var(--surface2);color:var(--muted);font-family:var(--f-body)}
+
+/* tab bar */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;pointer-events:none}
+nav.tabs .in{pointer-events:auto;width:100%;max-width:440px;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);align-items:end;padding:6px max(8px, env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px, env(safe-area-inset-left,0px))}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted);padding:4px 0}
+.tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--petrol)}
+.tab.add{transform:translateY(-14px)}
+.tab.add span.fab{width:54px;height:54px;border-radius:18px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 40%,transparent)}
+.tab.add svg{stroke:var(--accent-ink);stroke-width:2.4;width:26px;height:26px}
+
+/* forms */
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;font-size:15px;background:var(--accent);color:var(--accent-ink);width:100%}
+.btn.ghost{background:var(--surface2);color:var(--fg)}
+.btn.link{background:none;color:var(--petrol);padding:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:100%;min-width:0}
+.field input.num{font-size:17px}
+.field .hint{font-size:12px;color:var(--muted)}
+.field.ok input{border-color:var(--good)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.grid3 .field input{padding:10px;font-size:15px}
+
+/* login */
+#login{justify-content:center;padding-bottom:40px}
+.brand{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.brand .logo{width:56px;height:56px;border-radius:16px;background:var(--petrol);display:grid;place-items:center}
+.brand .logo svg{width:30px;height:30px;fill:var(--accent)}
+.brand h1{font-size:34px}
+.brand p{margin:0;color:var(--muted);max-width:32ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.note{font-size:12px;color:var(--muted);text-align:center}
+
+/* add flow */
+.steps{display:flex;gap:6px}
+.steps span{flex:1;height:4px;border-radius:4px;background:var(--surface2)}
+.steps span.on{background:var(--accent)}
+.capture{border:1.5px dashed var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:var(--surface)}
+.capture svg.ic{width:36px;height:36px;stroke:var(--petrol);fill:none;stroke-width:1.6}
+.capture p{margin:0;color:var(--muted);font-size:13px;max-width:30ch}
+.btnrow{display:flex;gap:8px;width:100%;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+.scanbox{position:relative;border-radius:14px;overflow:hidden;background:var(--surface2);display:grid;place-items:center;padding:14px}
+.scanbox img{max-height:260px;border-radius:8px}
+.scanline{position:absolute;left:0;right:0;height:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);top:0;animation:scan 1.3s ease-in-out infinite alternate}
+@keyframes scan{to{top:calc(100% - 3px)}}
+@media (prefers-reduced-motion: reduce){.scanline{animation:none;top:50%}}
+
+/* sample receipt: thermal paper look, always light */
+.receipt{width:210px;background:#fbfaf6;color:#222;font-family:var(--f-num);font-size:10.5px;line-height:1.5;padding:14px 14px 18px;box-shadow:0 4px 14px rgb(0 0 0 / .2);clip-path:polygon(0 0,100% 0,100% 100%,95% 98%,90% 100%,85% 98%,80% 100%,75% 98%,70% 100%,65% 98%,60% 100%,55% 98%,50% 100%,45% 98%,40% 100%,35% 98%,30% 100%,25% 98%,20% 100%,15% 98%,10% 100%,5% 98%,0 100%)}
+.receipt .c{text-align:center}
+.receipt .r{display:flex;justify-content:space-between;gap:8px}
+.receipt hr{border:0;border-top:1px dashed #999;margin:6px 0}
+.receipt .hl{background:rgb(224 138 0 / .25);outline:1px solid rgb(224 138 0 / .8);border-radius:2px}
+.odo{background:#06100f;color:#7ff0e0;border-radius:14px;padding:18px 20px;width:100%;max-width:280px;font-family:var(--f-num);text-align:center;box-shadow:inset 0 0 30px rgb(0 0 0 / .8)}
+.odo small{display:block;color:#3e8f86;font-size:10px;letter-spacing:.2em}
+.odo b{font-size:34px;letter-spacing:.12em;text-shadow:0 0 10px rgb(127 240 224 / .5)}
+.ocr-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--good)}
+.ocr-badge.busy{color:var(--muted)}
+
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.calc{background:var(--surface2);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.calc .r{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.calc .r b{font-family:var(--f-num)}
+.calc .big{font-family:var(--f-num);font-size:30px;font-weight:700;color:var(--petrol)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.demo-flag{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:2px 6px;letter-spacing:.04em}
+.settings .row{grid-template-columns:1fr auto}
+.back{border:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center}
+.back svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+
+[hidden]{display:none!important}
+button.row{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);font:inherit;color:inherit}
+button.row:first-child{border-top:0}
+button.row:hover{background:var(--surface2)}
+.car-chip{cursor:pointer;color:var(--fg)}
+.car-chip .caret{color:var(--muted);font-size:11px}
+.muted{color:var(--muted);font-size:13px;margin:0}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:600}
+.check input{width:20px;height:20px;accent-color:var(--petrol)}
+.err{color:var(--warn);font-size:13px;font-weight:600;margin:0}
+.btn.danger{background:transparent;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.btn.danger.armed{background:var(--warn);color:var(--surface)}
+.sheet-bg{position:fixed;inset:0;z-index:30;background:rgb(0 0 0 / .45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:440px;max-height:88%;overflow:auto;background:var(--bg);border-radius:20px 20px 0 0;padding-block:16px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center}
+.sheet textarea{width:100%;font-family:var(--f-num);font-size:11px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;resize:vertical;white-space:pre;overflow:auto}
+.carrow{grid-template-columns:22px 1fr auto}
+.carrow .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line)}
+.carrow[aria-pressed="true"] .radio{border:6px solid var(--petrol)}
+
+.empty{background:var(--surface);border:1.5px dashed var(--line);border-radius:16px;padding:20px 16px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.empty b{font-family:var(--f-display);font-size:18px}
+.empty p{margin:0;color:var(--muted);font-size:14px}
+.warnbox{background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600}
+.infobox{background:var(--surface2);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--muted)}
+#boot{justify-content:center;align-items:flex-start}
+
+body{margin:0;-webkit-text-size-adjust:100%}
+img{max-width:100%}
+.screen{padding-top:calc(16px + env(safe-area-inset-top,0px))}
+</style>
+</head>
+<body>
+
+
+<div class="app">
+
+<!-- ============ AÇILIŞ / KURULUM ============ -->
+<section class="screen" id="boot">
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M5 3h8a2 2 0 0 1 2 2v6h1a2 2 0 0 1 2 2v4a1 1 0 0 0 2 0V9.4l-2.7-2.7 1.4-1.4L22 8.6V17a3 3 0 0 1-6 0v-4h-1v8H3V5a2 2 0 0 1 2-2Zm0 2v5h8V5H5Z"/></svg></div>
+    <h1>Yakıt Defteri</h1>
+    <p id="bootMsg">Yükleniyor…</p>
+  </div>
+</section>
+
+<section class="screen" id="auth" hidden>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M5 3h8a2 2 0 0 1 2 2v6h1a2 2 0 0 1 2 2v4a1 1 0 0 0 2 0V9.4l-2.7-2.7 1.4-1.4L22 8.6V17a3 3 0 0 1-6 0v-4h-1v8H3V5a2 2 0 0 1 2-2Zm0 2v5h8V5H5Z"/></svg></div>
+    <h1>Yakıt Defteri</h1>
+    <p>Her depoda fişi çek, km'yi gir. Ortalama tüketimin kendiliğinden hesaplansın.</p>
+  </div>
+  <form class="card" id="authForm" novalidate>
+    <div class="seg" id="authSeg" role="group" aria-label="Giriş türü">
+      <button type="button" data-mode="login" aria-pressed="true">Giriş yap</button>
+      <button type="button" data-mode="signup" aria-pressed="false">Hesap oluştur</button>
+    </div>
+    <div class="field"><label for="aEmail">E-posta</label><input id="aEmail" type="email" autocomplete="username" inputmode="email" required></div>
+    <div class="field" id="aPassF"><label for="aPass">Şifre</label><input id="aPass" type="password" autocomplete="current-password" minlength="8" required></div>
+    <div class="field" id="aPass2F" hidden><label for="aPass2">Şifre tekrar</label><input id="aPass2" type="password" autocomplete="new-password" minlength="8"></div>
+    <p class="err" id="aErr" hidden></p>
+    <p class="infobox" id="aInfo" hidden></p>
+    <button class="btn" type="submit" id="aBtn">Giriş yap</button>
+    <button class="btn link" type="button" id="aForgot">Şifremi unuttum</button>
+  </form>
+</section>
+
+<section class="screen" id="newpass" hidden>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 24 24"><path d="M5 3h8a2 2 0 0 1 2 2v6h1a2 2 0 0 1 2 2v4a1 1 0 0 0 2 0V9.4l-2.7-2.7 1.4-1.4L22 8.6V17a3 3 0 0 1-6 0v-4h-1v8H3V5a2 2 0 0 1 2-2Zm0 2v5h8V5H5Z"/></svg></div><h1>Yeni şifre</h1><p>Hesabın için yeni bir şifre belirle.</p></div>
+  <form class="card" id="npForm">
+    <div class="field"><label for="np1">Yeni şifre</label><input id="np1" type="password" autocomplete="new-password" minlength="8" required></div>
+    <div class="field"><label for="np2">Yeni şifre tekrar</label><input id="np2" type="password" autocomplete="new-password" minlength="8" required></div>
+    <p class="err" id="npErr" hidden></p>
+    <button class="btn" type="submit">Şifreyi kaydet</button>
+  </form>
+</section>
+
+<section class="screen" id="setup" hidden>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M5 3h8a2 2 0 0 1 2 2v6h1a2 2 0 0 1 2 2v4a1 1 0 0 0 2 0V9.4l-2.7-2.7 1.4-1.4L22 8.6V17a3 3 0 0 1-6 0v-4h-1v8H3V5a2 2 0 0 1 2-2Zm0 2v5h8V5H5Z"/></svg></div>
+    <h1 id="setupTitle">Aracını ekle</h1>
+    <p>Kayıtların hesabında saklanır. Hangi cihazdan girersen gir aynı verileri görürsün.</p>
+  </div>
+  <form class="card" id="carForm">
+    <div class="field"><label for="cPlate">Plaka</label><input id="cPlate" required placeholder="34 ABC 123" autocomplete="off" style="text-transform:uppercase"></div>
+    <div class="field"><label for="cName">Araç adı (isteğe bağlı)</label><input id="cName" placeholder="Örn. Yeni aracım"></div>
+    <div class="grid2">
+      <div class="field"><label for="cFuel">Yakıt</label><select id="cFuel"><option>Benzin</option><option>Motorin</option><option>LPG</option><option>Hibrit</option></select></div>
+      <div class="field"><label for="cTank">Depo (L)</label><input class="num" id="cTank" inputmode="numeric" placeholder="50"></div>
+    </div>
+    <p class="err" id="cErr" hidden></p>
+    <button class="btn" type="submit" id="cSave">Aracı kaydet</button>
+    <button class="btn link" type="button" id="cCancel" hidden>Vazgeç</button>
+  </form>
+  <p class="note">İlk yakıt kaydın başlangıç noktası olur. Ortalama tüketim ikinci full dolumdan itibaren hesaplanır.</p>
+</section>
+
+<!-- ============ PANEL ============ -->
+<section class="screen" id="dash" hidden>
+  <header class="top">
+    <div><div class="eyebrow" id="dashMonth"></div><h1 id="dashTitle">Yakıt Defteri</h1></div>
+    <button class="car-chip" id="carBtn" data-act="cars" aria-label="Araç değiştir"><i><svg viewBox="0 0 24 24"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11a2 2 0 0 1 2 2v4h-2v2h-3v-2H8v2H5v-2H3v-4a2 2 0 0 1 2-2Zm2.1 0h9.8l-1.2-3.6a.5.5 0 0 0-.5-.4H8.8a.5.5 0 0 0-.5.4L7.1 11ZM6.5 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm11 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg></i><span class="plate"></span><span class="caret">▾</span></button>
+  </header>
+
+  <div class="empty" id="dashEmpty" hidden>
+    <b>İlk dolumunu ekle</b>
+    <p>Bir sonraki yakıt alışında fişin fotoğrafını çek ve km'yi gir. Bu ilk kayıt başlangıç noktası olur. Ortalama, ondan sonraki full dolumda hesaplanır.</p>
+    <button class="btn" data-go="add" style="width:auto">Yakıt ekle</button>
+  </div>
+  <div class="infobox" id="dashWait" hidden>Başlangıç kaydın hazır. Bir sonraki full dolumda ilk ortalama tüketimin burada görünecek.</div>
+
+  <div id="dashData" style="display:flex;flex-direction:column;gap:16px">
+    <div class="cluster" id="clusterBox">
+      <div class="gauge" id="gauge"></div>
+      <div class="mini"><small>Son depo</small><b id="lastCons">–</b><span class="delta" id="lastDelta"></span></div>
+      <div class="mini"><small>Km başına</small><b id="tlkm">–</b><small id="tlkmSub"></small></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="panel" id="consPanel">
+      <div class="panel-head"><h2>100 km'de tüketim</h2><span class="num" id="consRange"></span></div>
+      <div id="consChart"></div>
+    </div>
+    <div class="panel" id="monthPanel">
+      <div class="panel-head"><h2>Aylık</h2></div>
+      <div class="seg" role="group" aria-label="Aylık grafik">
+        <button aria-pressed="true" data-m="km">Km</button>
+        <button aria-pressed="false" data-m="tl">Harcama</button>
+        <button aria-pressed="false" data-m="lt">Litre</button>
+      </div>
+      <div id="monthChart"></div>
+    </div>
+    <div class="panel" id="pricePanel">
+      <div class="panel-head"><h2>Litre fiyatı</h2><span class="num" id="priceRange"></span></div>
+      <div id="priceChart"></div>
+    </div>
+    <div class="panel-head"><h2>Son dolumlar</h2><button class="btn link" style="width:auto" data-go="list">Tümü</button></div>
+    <div class="list" id="recent"></div>
+  </div>
+</section>
+
+<!-- ============ KAYITLAR ============ -->
+<section class="screen" id="list" hidden>
+  <header class="top"><div><div class="eyebrow" id="listPlate">Tüm dolumlar</div><h1>Kayıtlar</h1></div></header>
+  <p class="muted" style="margin:0">Tüketim iki full dolum arasında hesaplanır, aradaki kısmi dolumlar da hesaba katılır. Düzeltmek ya da silmek için kayda dokun.</p>
+  <div class="list" id="allList"></div>
+  <p class="muted" id="listEmpty" hidden>Henüz kayıt yok.</p>
+</section>
+
+<!-- ============ YENİ KAYIT ============ -->
+<section class="screen" id="add" hidden>
+  <header class="top">
+    <div><div class="eyebrow" id="stepLbl">Adım 1 / 3</div><h1 id="stepTitle">Yakıt fişi</h1></div>
+    <button class="back" data-go="dash" aria-label="Vazgeç"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div class="steps"><span class="on"></span><span></span><span></span></div>
+
+  <div id="s1" class="stepbody" style="display:flex;flex-direction:column;gap:14px">
+    <div class="capture" id="rcCapture">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+      <b>Fişin fotoğrafını çek</b>
+      <p id="rcText">Litre fiyatı, litre ve toplam tutar fişten okunur. Kaydetmeden önce kontrol edebilirsin.</p>
+      <div class="btnrow" id="rcBtns">
+        <label class="btn filebtn">Fotoğraf çek / seç<input type="file" accept="image/*" capture="environment" id="rcFile"></label>
+      </div>
+    </div>
+    <div id="rcScan" hidden></div>
+    <div class="grid3">
+      <div class="field" id="fPrice"><label for="price">TL / litre</label><input class="num" id="price" inputmode="decimal" placeholder="0,00"></div>
+      <div class="field" id="fLit"><label for="liters">Litre</label><input class="num" id="liters" inputmode="decimal" placeholder="0,00"></div>
+      <div class="field" id="fTot"><label for="total">Toplam TL</label><input class="num" id="total" inputmode="decimal" placeholder="0,00"></div>
+    </div>
+    <div class="warnbox" id="mismatch" hidden></div>
+    <label class="check"><input type="checkbox" id="full" checked> Depoyu fulledim</label>
+    <p class="muted" style="margin:-8px 0 0">Fullemediysen işareti kaldır. Tüketim bir sonraki full dolumda hesaplanır.</p>
+    <button class="btn" id="to2" disabled>Devam</button>
+  </div>
+
+  <div id="s2" class="stepbody" hidden style="flex-direction:column;gap:14px">
+    <div class="capture" id="odoCapture">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M3 15a9 9 0 1 1 18 0"/><path d="M12 15l4-5"/><circle cx="12" cy="15" r="1.4"/></svg>
+      <b>Kilometre sayacı</b>
+      <p>Göstergenin fotoğrafını çek ya da km'yi aşağıya kendin yaz.</p>
+      <div class="btnrow" id="odoBtns">
+        <label class="btn filebtn">Fotoğraf çek / seç<input type="file" accept="image/*" capture="environment" id="odoFile"></label>
+      </div>
+    </div>
+    <div id="odoScan" hidden></div>
+    <div class="field" id="fOdo"><label for="odo">Güncel km</label><input class="num" id="odo" inputmode="numeric" placeholder="0">
+      <span class="hint" id="odoHint"></span></div>
+    <div class="field"><label for="date">Tarih</label><input id="date" type="date"></div>
+    <div class="btnrow"><button class="btn ghost" id="back1">Geri</button><button class="btn" id="to3" disabled>Devam</button></div>
+  </div>
+
+  <div id="s3" class="stepbody" hidden style="flex-direction:column;gap:14px">
+    <div class="calc">
+      <span class="eyebrow">Bu depo</span>
+      <span class="big" id="sumCons">–</span>
+      <div class="r"><span>Son full dolumdan beri</span><b id="sumKm">–</b></div>
+      <div class="r"><span>Km başına</span><b id="sumTlkm">–</b></div>
+      <div class="r"><span>Ortalamaya göre</span><b id="sumVs">–</b></div>
+    </div>
+    <p class="muted" id="sumNote" hidden></p>
+    <div class="summary" id="sumGrid"></div>
+    <p class="err" id="saveErr" hidden></p>
+    <div class="btnrow"><button class="btn ghost" id="back2">Geri</button><button class="btn" id="save">Kaydet</button></div>
+  </div>
+</section>
+
+<!-- ============ ARAÇ ============ -->
+<section class="screen settings" id="car" hidden>
+  <header class="top"><div><div class="eyebrow">Araç ve veriler</div><h1 id="carTitle">Aracım</h1></div>
+    <button class="btn ghost" style="width:auto;padding:9px 14px;font-size:14px" data-act="cars">Araç değiştir</button></header>
+  <div class="list" id="carInfo"></div>
+  <h2>Verilerim</h2>
+  <div class="list">
+    <div class="row"><div class="mid"><b>Hesap</b><div id="accEmail"></div></div><div class="right"><span class="pill good" id="syncPill">Bağlı</span></div></div>
+    <button class="row" data-act="export"><div class="mid"><b>Dışa aktar</b><div>Excel'de açılan CSV dosyası</div></div><div class="right">›</div></button>
+  </div>
+  <h2>Kullanım</h2>
+  <div class="list">
+    <div class="row"><div class="mid"><b>Ana ekrana ekle</b><div>iPhone: Safari › Paylaş › Ana Ekrana Ekle. Android: Chrome › ⋮ › Ana ekrana ekle</div></div></div>
+    <div class="row"><div class="mid"><b>Fotoğraf okuma</b><div id="ocrState">Fiş ve km fotoğrafları yapay zekâ ile okunur. Kaydetmeden önce kontrol edebilirsin.</div></div></div>
+  </div>
+  <button class="btn ghost" id="logout">Çıkış yap</button>
+</section>
+
+<nav class="tabs" id="tabs" hidden><div class="in">
+  <button class="tab" data-go="dash" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 13a9 9 0 0 1 18 0"/><path d="M12 13l4-4"/><path d="M3 17h18"/></svg>Panel</button>
+  <button class="tab" data-go="list"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Kayıtlar</button>
+  <button class="tab add" data-go="add" aria-label="Yakıt ekle"><span class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></button>
+  <button class="tab" data-go="dash" data-scroll="monthPanel"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Trend</button>
+  <button class="tab" data-go="car"><svg viewBox="0 0 24 24"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11M3 17v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3Zm3 0v2m12-2v2"/></svg>Aracım</button>
+</div></nav>
+<div class="sheet-bg" id="sheetBg" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
