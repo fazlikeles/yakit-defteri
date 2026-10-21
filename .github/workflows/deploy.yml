@@ -46,6 +46,16 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: supabase secrets set --project-ref "$PROJECT_REF" GEMINI_API_KEY="$GEMINI_API_KEY"
+      - name: Giriş e-postalarının dönüş adresini ayarla
+        env:
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: |
+          body=$(jq -n --arg u "$SITE_URL" '{site_url:$u, uri_allow_list:($u + "**")}')
+          code=$(curl -sS -o /tmp/auth.json -w '%{http_code}' -X PATCH \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" -d "$body")
+          echo "HTTP $code"; jq '{site_url, uri_allow_list}' /tmp/auth.json || cat /tmp/auth.json
+          test "$code" -lt 300
       - name: Fotoğraf okuma servisini yayınla
         run: supabase functions deploy read-image --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
       - name: Uygulama anahtarını al

@@ -183,11 +183,18 @@ function setAuthMode(m){
   $('#aPass').autocomplete=m==='signup'?'new-password':'current-password';
   $('#aBtn').textContent=m==='signup'?'Hesap oluştur':'Giriş yap';
   $('#aForgot').hidden=m!=='login';
-  $('#aErr').hidden=true;$('#aInfo').hidden=true;
+  $('#aErr').hidden=true;$('#aInfo').hidden=true;$('#aInfo').className='infobox';
 }
 $$('#authSeg button').forEach(b=>b.addEventListener('click',()=>setAuthMode(b.dataset.mode)));
 const aErr=m=>{$('#aErr').textContent=m;$('#aErr').hidden=false;$('#aInfo').hidden=true};
 const aInfo=m=>{$('#aInfo').textContent=m;$('#aInfo').hidden=false;$('#aErr').hidden=true};
+// Yeşil başarı kutusu: formu temizler, giriş sekmesine geçer
+function aSuccess(title,text,email){
+  setAuthMode('login');
+  $('#aPass').value='';$('#aPass2').value='';$('#aEmail').value=email||'';
+  const box=$('#aInfo'); box.className='okbox'; box.innerHTML=`<b>${esc(title)}</b>${esc(text)}`; box.hidden=false; $('#aErr').hidden=true;
+  box.scrollIntoView({block:'nearest'});
+}
 function authMsg(e){
   const c=e?.code||'', m=(e?.message||'').toLowerCase();
   if(c==='invalid_credentials'||m.includes('invalid login')) return 'E-posta ya da şifre hatalı.';
@@ -215,7 +222,7 @@ $('#authForm').addEventListener('submit',async e=>{
         setAuthMode('login'); $('#aEmail').value=email;
         return aErr('Bu e-postayla zaten bir hesap var. Giriş yap ya da "Şifremi unuttum"a dokun.');
       }
-      if(!data.session) aInfo('Hesabın oluşturuldu. E-postana gelen doğrulama linkine tıkla, sonra buradan giriş yap.');
+      if(!data.session) aSuccess('✓ Doğrulama e-postası gönderildi',`${email} adresine bir e-posta gönderdik. İçindeki "Confirm your mail" linkine tıkla, sonra buradan e-posta ve şifrenle giriş yap. E-posta birkaç dakika içinde gelmezse spam klasörüne bak.`,email);
     } else {
       const {error}=await sb.auth.signInWithPassword({email,password:pass});
       if(error) throw error;
@@ -228,7 +235,7 @@ $('#aForgot').addEventListener('click',async()=>{
   if(!/^\S+@\S+\.\S+$/.test(email)) return aErr('Önce e-postanı yaz, sonra "Şifremi unuttum"a dokun.');
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:redirectUrl()});
   if(error) return aErr(authMsg(error));
-  aInfo('Şifre yenileme linki e-postana gönderildi.');
+  aSuccess('✓ Şifre yenileme e-postası gönderildi',`${email} adresine gelen linke tıkla ve yeni şifreni belirle. Gelmezse spam klasörüne bak.`,email);
 });
 $('#npForm').addEventListener('submit',async e=>{
   e.preventDefault();
