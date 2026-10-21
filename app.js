@@ -33,6 +33,7 @@ function translateDom(){
   $$('[placeholder],[aria-label]').forEach(el=>['placeholder','aria-label'].forEach(a=>{const v=el.getAttribute(a); if(v){const o=t(TR[v]??v); if(o!==v) el.setAttribute(a,o)}}));
   document.documentElement.lang=LANG; document.title=t('Yakıt Defteri');
   $$('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===LANG));
+  const lb=$('#langBtn'); if(lb) lb.textContent=LANG==='en'?'TR':'EN';
 }
 
 const CFG=window.YAKIT_CONFIG||{};
@@ -576,6 +577,7 @@ function setLang(l){
   if(!$('#add').hidden){$('#stepLbl').textContent=t('Adım {n} / 3',{n:curStep})+` · ${S.car?.plate||''}`;$('#stepTitle').textContent=t(['Yakıt fişi','Kilometre','Özet'][curStep-1]);validate1();validate2();if(curStep===3)buildSummary()}
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-lang]'); if(b) setLang(b.dataset.lang)});
+$('#langBtn').addEventListener('click',()=>setLang(LANG==='en'?'tr':'en'));
 translateDom();
 
 /* ---------- başlat ---------- */

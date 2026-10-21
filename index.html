@@ -192,6 +192,8 @@ button.row{width:100%;text-align:left;background:none;border:0;border-top:1px so
 button.row:first-child{border-top:0}
 button.row:hover{background:var(--surface2)}
 .car-chip{cursor:pointer;color:var(--fg)}
+.hdr-r{display:flex;align-items:center;gap:8px}
+.langchip{padding:6px 12px;font-family:var(--f-num)}
 .car-chip .caret{color:var(--muted);font-size:11px}
 .muted{color:var(--muted);font-size:13px;margin:0}
 .check{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:600}
@@ -291,8 +293,9 @@ img{max-width:100%}
 <section class="screen" id="dash" hidden>
   <header class="top">
     <div><div class="eyebrow" id="dashMonth"></div><h1 id="dashTitle">Yakıt Defteri</h1></div>
+    <div class="hdr-r"><button class="car-chip langchip" id="langBtn" aria-label="Dil / Language">EN</button>
     <button class="car-chip" id="carBtn" data-act="cars" aria-label="Araç değiştir"><i><svg viewBox="0 0 24 24"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11a2 2 0 0 1 2 2v4h-2v2h-3v-2H8v2H5v-2H3v-4a2 2 0 0 1 2-2Zm2.1 0h9.8l-1.2-3.6a.5.5 0 0 0-.5-.4H8.8a.5.5 0 0 0-.5.4L7.1 11ZM6.5 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm11 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg></i><span class="plate"></span><span class="caret">▾</span></button>
-  </header>
+  </div></header>
 
   <div class="empty" id="dashEmpty" hidden>
     <b>İlk dolumunu ekle</b>
@@ -404,13 +407,13 @@ img{max-width:100%}
     <button class="btn ghost" style="width:auto;padding:9px 14px;font-size:14px" data-act="cars">Araç değiştir</button></header>
   <div class="list" id="carInfo"></div>
   <button class="btn ghost" data-act="editcar">Araç bilgilerini düzenle</button>
+  <h2>Dil</h2>
+  <div class="seg" role="group" aria-label="Dil"><button type="button" data-lang="tr" aria-pressed="true">Türkçe</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
   <h2>Verilerim</h2>
   <div class="list">
     <div class="row"><div class="mid"><b>Hesap</b><div id="accEmail"></div></div><div class="right"><span class="pill good" id="syncPill">Bağlı</span></div></div>
     <button class="row" data-act="export"><div class="mid"><b>Dışa aktar</b><div>Excel'de açılan CSV dosyası</div></div><div class="right">›</div></button>
   </div>
-  <h2>Dil</h2>
-  <div class="seg" role="group" aria-label="Dil"><button type="button" data-lang="tr" aria-pressed="true">Türkçe</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
   <h2>Kullanım</h2>
   <div class="list">
     <div class="row"><div class="mid"><b>Ana ekrana ekle</b><div>iPhone: Safari › Paylaş › Ana Ekrana Ekle. Android: Chrome › ⋮ › Ana ekrana ekle</div></div></div>
