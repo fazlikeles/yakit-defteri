@@ -7,6 +7,7 @@ Aracının yakıt tüketimini takip eden, telefonda uygulama gibi çalışan bir
 - 100 km'de ortalama tüketim, km başına TL, aylık km ve harcama, litre fiyatı trendi
 - Kısmi dolumları doğru hesaplar, kayıtlar düzenlenip silinebilir, CSV olarak dışa aktarılır
 - Birden fazla araç, e-posta ve şifreyle giriş; herkes yalnızca kendi verisini görür
+- Türkçe ve İngilizce arayüz (Aracım › Dil ya da giriş ekranındaki dil düğmesi)
 
 ## Nasıl çalışır
 

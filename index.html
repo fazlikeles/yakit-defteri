@@ -90,6 +90,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:17px;margin:0;letter-s
 .chart .lbl{fill:var(--fg);font-weight:700}
 .seg{display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:3px}
 .seg button{flex:1;border:0;background:transparent;border-radius:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--muted)}
+.langseg{align-self:flex-end;width:170px}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
 
 /* fills list */
@@ -235,6 +236,7 @@ img{max-width:100%}
 </section>
 
 <section class="screen" id="auth" hidden>
+  <div class="seg langseg" role="group" aria-label="Dil"><button type="button" data-lang="tr" aria-pressed="true">Türkçe</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
   <div class="brand">
     <div class="logo"><svg viewBox="0 0 24 24"><path d="M5 3h8a2 2 0 0 1 2 2v6h1a2 2 0 0 1 2 2v4a1 1 0 0 0 2 0V9.4l-2.7-2.7 1.4-1.4L22 8.6V17a3 3 0 0 1-6 0v-4h-1v8H3V5a2 2 0 0 1 2-2Zm0 2v5h8V5H5Z"/></svg></div>
     <h1>Yakıt Defteri</h1>
@@ -275,7 +277,7 @@ img{max-width:100%}
     <div class="field"><label for="cPlate">Plaka</label><input id="cPlate" required placeholder="34 ABC 123" autocomplete="off" style="text-transform:uppercase"></div>
     <div class="field"><label for="cName">Araç adı (isteğe bağlı)</label><input id="cName" placeholder="Örn. Yeni aracım"></div>
     <div class="grid2">
-      <div class="field"><label for="cFuel">Yakıt</label><select id="cFuel"><option>Benzin</option><option>Motorin</option><option>LPG</option><option>Hibrit</option></select></div>
+      <div class="field"><label for="cFuel">Yakıt</label><select id="cFuel"><option value="Benzin">Benzin</option><option value="Motorin">Motorin</option><option value="LPG">LPG</option><option value="Hibrit">Hibrit</option></select></div>
       <div class="field"><label for="cTank">Depo (L)</label><input class="num" id="cTank" inputmode="numeric" placeholder="50"></div>
     </div>
     <p class="err" id="cErr" hidden></p>
@@ -407,6 +409,8 @@ img{max-width:100%}
     <div class="row"><div class="mid"><b>Hesap</b><div id="accEmail"></div></div><div class="right"><span class="pill good" id="syncPill">Bağlı</span></div></div>
     <button class="row" data-act="export"><div class="mid"><b>Dışa aktar</b><div>Excel'de açılan CSV dosyası</div></div><div class="right">›</div></button>
   </div>
+  <h2>Dil</h2>
+  <div class="seg" role="group" aria-label="Dil"><button type="button" data-lang="tr" aria-pressed="true">Türkçe</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
   <h2>Kullanım</h2>
   <div class="list">
     <div class="row"><div class="mid"><b>Ana ekrana ekle</b><div>iPhone: Safari › Paylaş › Ana Ekrana Ekle. Android: Chrome › ⋮ › Ana ekrana ekle</div></div></div>
@@ -428,6 +432,7 @@ img{max-width:100%}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
