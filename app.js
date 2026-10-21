@@ -162,7 +162,7 @@ function show(id,scrollTo){
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-go]'); if(b){e.preventDefault();show(b.dataset.go,b.dataset.scroll);return}
   const r=e.target.closest('[data-edit]'); if(r){openEdit(r.dataset.edit);return}
-  const a=e.target.closest('[data-act]'); if(a){({export:doExport,cars:openCars,addcar:()=>openSetup(true)})[a.dataset.act]?.()}
+  const a=e.target.closest('[data-act]'); if(a){({export:doExport,cars:openCars,addcar:()=>openSetup(true),editcar:openEditCar})[a.dataset.act]?.()}
 });
 let tt; function toast(msg){let t=$('.toast'); if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)} t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2800)}
 function dbErr(e){console.error(e);return navigator.onLine===false?'İnternet bağlantısı yok. Bağlanınca tekrar dene.':'Kaydedilemedi. Tekrar dene.'}
@@ -305,6 +305,41 @@ function openCars(){
     <div class="mid"><b>${esc(c.plate)}</b><div>${esc(c.name||'')}${c.name?' · ':''}${esc(c.fuel)}</div></div><div class="right">${c===S.car&&st.rows.length?`<b>${f1.format(st.avg)}</b><div style="font-size:11px;color:var(--muted)">L/100km</div>`:''}</div></button>`).join('')+`</div>
   <button class="btn ghost" data-act="addcar">+ Araç ekle</button>`);
   $$('[data-car]').forEach(b=>b.addEventListener('click',async()=>{closeSheet();show('dash');await selectCar(b.dataset.car);toast(S.car.plate+' seçildi')}));
+}
+
+/* araç düzenle / sil */
+function openEditCar(){
+  const c=S.car; if(!c) return;
+  const fuels=['Benzin','Motorin','LPG','Hibrit'];
+  openSheet(sheetHead('Aracı düzenle')+`
+  <div class="field"><label for="ecPlate">Plaka</label><input id="ecPlate" value="${esc(c.plate)}" autocomplete="off" style="text-transform:uppercase"></div>
+  <div class="field"><label for="ecName">Araç adı (isteğe bağlı)</label><input id="ecName" value="${esc(c.name||'')}"></div>
+  <div class="grid2">
+    <div class="field"><label for="ecFuel">Yakıt</label><select id="ecFuel">${fuels.map(f=>`<option${f===c.fuel?' selected':''}>${f}</option>`).join('')}</select></div>
+    <div class="field"><label for="ecTank">Depo (L)</label><input class="num" id="ecTank" inputmode="numeric" value="${c.tank??''}"></div>
+  </div>
+  <p class="err" id="ecErr" hidden></p>
+  <button class="btn" id="ecSave">Kaydet</button>
+  <button class="btn danger" id="ecDel">Aracı sil</button>`);
+  const err=m=>{$('#ecErr').textContent=m;$('#ecErr').hidden=false};
+  $('#ecSave').addEventListener('click',async()=>{
+    const plate=$('#ecPlate').value.trim().toLocaleUpperCase('tr-TR');
+    if(!plate) return err('Plakayı yaz.');
+    const body={plate,name:$('#ecName').value.trim()||null,fuel:$('#ecFuel').value,tank:parse($('#ecTank').value)||null};
+    $('#ecSave').disabled=true;
+    const {data,error}=await sb.from('cars').update(body).eq('id',c.id).select().single();
+    if(error){err(dbErr(error));$('#ecSave').disabled=false;return}
+    Object.assign(c,data); closeSheet(); render(); toast('Araç bilgileri güncellendi');
+  });
+  let armed=false;
+  $('#ecDel').addEventListener('click',async()=>{
+    if(!armed){armed=true;$('#ecDel').textContent=`Emin misin? ${fills.length} kayıt da silinecek. Silmek için tekrar dokun`;$('#ecDel').classList.add('armed');return}
+    const {error}=await sb.from('cars').delete().eq('id',c.id);
+    if(error) return err(dbErr(error));
+    S.cars=S.cars.filter(x=>x.id!==c.id); S.car=null; fills=[]; closeSheet(); toast('Araç silindi');
+    if(!S.cars.length){openSetup(false);return}
+    await selectCar(S.cars[0].id); show('dash');
+  });
 }
 
 /* kayıt düzenle / sil */
