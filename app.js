@@ -33,7 +33,7 @@ function translateDom(){
   $$('[placeholder],[aria-label]').forEach(el=>['placeholder','aria-label'].forEach(a=>{const v=el.getAttribute(a); if(v){const o=t(TR[v]??v); if(o!==v) el.setAttribute(a,o)}}));
   document.documentElement.lang=LANG; document.title=t('Yakıt Defteri');
   $$('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===LANG));
-  const lb=$('#langBtn'); if(lb) lb.textContent=LANG==='en'?'TR':'EN';
+  const lb=$('#langBtn'); if(lb) lb.textContent=LANG==='en'?'🇹🇷 TR':'🇬🇧 EN';
 }
 
 const CFG=window.YAKIT_CONFIG||{};
