@@ -15,14 +15,31 @@ const json = (body: unknown, status = 200) =>
 
 const PROMPTS: Record<string, string> = {
   receipt: `Bu fotoğraf Türkiye'deki bir akaryakıt istasyonunun fişi. Şu değerleri oku:
-- price_per_liter: litre birim fiyatı (BİRİM FİYAT, LT FİYATI, TL/LT)
-- liters: alınan yakıt miktarı, litre (LİTRE, LT, MİKTAR)
-- total: ödenen toplam tutar, KDV dahil (TOPLAM)
+- liters: alınan yakıt miktarı, litre
+- price_per_liter: litre birim fiyatı, TL
+- total: ödenen toplam tutar, KDV dahil (TOPLAM satırı; TOPKDV satırını alma)
 - date: fiş tarihi, YYYY-MM-DD
-Sayıları JSON sayısı olarak yaz, ondalık ayırıcı nokta olsun (örn. 51.89). Okuyamadığın ya da emin olmadığın değere null yaz, tahmin etme.
+Türk fişlerinde yakıt satırı genelde "12,580 LT X 79,52" biçimindedir: ilk sayı litre (12.58), X'ten sonraki sayı litre fiyatıdır (79.52). Türkçede virgül ondalık ayırıcıdır, nokta binlik ayırıcıdır: "1.000,00" = 1000. Sayıların önündeki * işaretini yok say.
+Sayıları JSON sayısı olarak, ondalık ayırıcı nokta olacak şekilde yaz. Gerçekten göremediğin değere null yaz.
 Sadece şu JSON'u döndür: {"price_per_liter": number|null, "liters": number|null, "total": number|null, "date": string|null}`,
   odometer: `Bu fotoğraf bir aracın gösterge panelini gösteriyor. Toplam kilometre sayacını (ODO) oku. TRIP, menzil, hız ya da saat değerlerini alma.
 Sadece şu JSON'u döndür: {"odometer_km": number|null}. Okuyamıyorsan null yaz.`,
+};
+
+const num = { type: "NUMBER", nullable: true };
+const SCHEMAS: Record<string, unknown> = {
+  receipt: { type: "OBJECT", properties: { price_per_liter: num, liters: num, total: num, date: { type: "STRING", nullable: true } }, required: ["price_per_liter", "liters", "total", "date"] },
+  odometer: { type: "OBJECT", properties: { odometer_km: num }, required: ["odometer_km"] },
+};
+// "1.000,00", "*79,52" ya da 79.52 gibi değerleri sayıya çevirir
+const toNum = (v: unknown): number | null => {
+  if (typeof v === "number") return isFinite(v) && v > 0 ? v : null;
+  if (typeof v !== "string") return null;
+  let s = v.replace(/[^\d.,]/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const n = parseFloat(s);
+  return isFinite(n) && n > 0 ? n : null;
 };
 
 Deno.serve(async (req) => {
@@ -55,7 +72,7 @@ Deno.serve(async (req) => {
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: body.image } }] }],
-      generationConfig: { temperature: 0, response_mime_type: "application/json" },
+      generationConfig: { temperature: 0, response_mime_type: "application/json", response_schema: SCHEMAS[body.kind!] },
     }),
   });
   if (!res.ok) {
@@ -64,10 +81,27 @@ Deno.serve(async (req) => {
   }
   const out = await res.json();
   const text: string = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+  let raw: Record<string, unknown>;
   try {
     const m = text.match(/\{[\s\S]*\}/);
-    return json(JSON.parse(m ? m[0] : text));
+    raw = JSON.parse(m ? m[0] : text);
   } catch {
+    console.error("okunamadı", body.kind, text.slice(0, 300));
     return json({ error: "unreadable" }, 422);
   }
+  if (body.kind === "odometer") {
+    const r = { odometer_km: toNum(raw.odometer_km) };
+    console.log("sonuç", body.kind, JSON.stringify(r));
+    return r.odometer_km ? json(r) : json({ error: "unreadable" }, 422);
+  }
+  const r = {
+    price_per_liter: toNum(raw.price_per_liter),
+    liters: toNum(raw.liters),
+    total: toNum(raw.total),
+    date: typeof raw.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.date) ? raw.date : null,
+  };
+  console.log("sonuç", body.kind, JSON.stringify(r));
+  // En az iki değer yoksa okunamadı say; uygulama telefonda okumayı dener
+  const n = [r.price_per_liter, r.liters, r.total].filter((x) => x).length;
+  return n >= 2 ? json(r) : json({ error: "unreadable" }, 422);
 });

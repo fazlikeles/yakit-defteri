@@ -439,7 +439,7 @@ function loadTesseract(){
   if(window.Tesseract) return Promise.resolve();
   return tessP??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
 }
-const num=s=>parse(String(s).replace(/[*\s]/g,''));
+const num=s=>{let v=String(s).replace(/[^\d.,]/g,''); if(v.includes(',')) v=v.replace(/\./g,'').replace(',','.'); else if(/^\d{1,3}(\.\d{3})+$/.test(v)) v=v.replace(/\./g,''); const n=parseFloat(v); return isFinite(n)?n:NaN};
 function parseReceiptText(text){
   const lines=text.toLocaleUpperCase('tr-TR').split(/\n/).map(l=>l.trim()).filter(Boolean);
   const out={price_per_liter:null,liters:null,total:null};
@@ -467,7 +467,10 @@ async function scan(file,box,kind){
   const badge=(t,ok,warn)=>{const b=box.querySelector('.ocr-badge');b.className='ocr-badge'+(ok?'':' busy');b.style.color=warn?'var(--warn)':'';b.textContent=t};
   const done=()=>box.querySelector('.scanline')?.remove();
   const img=await toJpeg(file);
-  try{const r=await readOnServer(img,kind);done();badge(t('✓ Okundu, değerleri kontrol et'),true);return r}
+  try{const r=await readOnServer(img,kind);
+    const got=kind==='receipt'?['price_per_liter','liters','total'].filter(k=>num(r?.[k])>0).length:(num(r?.odometer_km)>0?1:0);
+    if(!got){const er=new Error('unreadable');er.code='unreadable';throw er}
+    done();badge(t('✓ Okundu, değerleri kontrol et'),true);return r}
   catch(e){
     if(kind==='receipt'){
       try{const r=await readOnDevice(img,t=>badge(t,false));done();
@@ -487,7 +490,7 @@ $('#rcFile').addEventListener('change',async e=>{
   const r=await scan(f,$('#rcScan'),'receipt');
   $('#rcCapture').hidden=false; $('#rcText').textContent=t('Okuma yanlışsa başka bir fotoğraf seçebilir ya da değerleri düzeltebilirsin.');
   if(!r) return;
-  let p=+r.price_per_liter,l=+r.liters,t=+r.total;
+  let p=num(r.price_per_liter),l=num(r.liters),t=num(r.total);
   if(!(l>0)&&p>0&&t>0) l=t/p; if(!(t>0)&&p>0&&l>0) t=p*l; if(!(p>0)&&l>0&&t>0) p=t/l;
   setVal('price',p,2);setVal('liters',l,2);setVal('total',t,2);
   if(r.date&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)){const d=new Date(r.date+'T12:00');if(d<=new Date()&&d>new Date(Date.now()-60*864e5)) $('#date').value=r.date}
@@ -496,7 +499,7 @@ $('#rcFile').addEventListener('change',async e=>{
 $('#odoFile').addEventListener('change',async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   const r=await scan(f,$('#odoScan'),'odometer');
-  if(r&&setVal('odo',Math.round(+r.odometer_km),0)) validate2();
+  if(r&&setVal('odo',Math.round(num(r.odometer_km)),0)) validate2();
 });
 
 /* ---------- yeni kayıt akışı ---------- */
