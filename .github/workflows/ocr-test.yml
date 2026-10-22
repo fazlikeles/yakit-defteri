@@ -27,15 +27,16 @@ jobs:
         run: |
           curl -sS "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" -H "x-goog-api-key: $KEY" \
             | jq -r '.models[]?.name, (.error.message // empty)' | grep -i -E "flash|error|key" | head -40
-      - name: Şemalı ve şemasız istek
+      - name: Süre ve düşünme ayarı
         run: |
           PROMPT=$(sed -n '/receipt: `/,/`,/p' supabase/functions/read-image/index.ts | sed '1s/.*receipt: `//; $s/`,$//')
-          for schema in yes no; do
-            if [ $schema = yes ]; then GC='{"temperature":0,"response_mime_type":"application/json","response_schema":{"type":"OBJECT","properties":{"price_per_liter":{"type":"NUMBER","nullable":true},"liters":{"type":"NUMBER","nullable":true},"total":{"type":"NUMBER","nullable":true},"date":{"type":"STRING","nullable":true}},"required":["price_per_liter","liters","total","date"]}}'
-            else GC='{"temperature":0,"response_mime_type":"application/json"}'; fi
+          SCHEMA='{"type":"OBJECT","properties":{"price_per_liter":{"type":"NUMBER","nullable":true},"liters":{"type":"NUMBER","nullable":true},"total":{"type":"NUMBER","nullable":true},"date":{"type":"STRING","nullable":true}},"required":["price_per_liter","liters","total","date"]}'
+          for m in $MODEL gemini-3.5-flash gemini-3.1-flash-lite; do
+          for think in none '{"thinking_level":"minimal"}' '{"thinking_level":"low"}' '{"thinking_budget":0}'; do
+            if [ "$think" = none ]; then GC=$(jq -n --argjson s "$SCHEMA" '{temperature:0,response_mime_type:"application/json",response_schema:$s}')
+            else GC=$(jq -n --argjson s "$SCHEMA" --argjson t "$think" '{temperature:0,response_mime_type:"application/json",response_schema:$s,thinking_config:$t}'); fi
             jq -n --arg p "$PROMPT" --arg img "$IMG" --argjson gc "$GC" '{contents:[{parts:[{text:$p},{inline_data:{mime_type:"image/jpeg",data:$img}}]}],generationConfig:$gc}' > body.json
-            echo "== şema: $schema =="
-            curl -sS -o out.json -w "HTTP %{http_code}\n" "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" \
-              -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @body.json
-            jq -c '{error:.error.message, finish:.candidates[0].finishReason, text:(.candidates[0].content.parts // [] | map(.text // "") | join(""))}' out.json
-          done
+            r=$(curl -sS -m 90 -o out.json -w "%{http_code} %{time_total}s" "https://generativelanguage.googleapis.com/v1beta/models/$m:generateContent" \
+              -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @body.json || echo "timeout")
+            echo "$m | $think | $r | $(jq -c '{e:(.error.message//null|tostring|.[0:120]),t:(.candidates[0].content.parts // [] | map(.text // "") | join(""))}' out.json 2>/dev/null)"
+          done; done
