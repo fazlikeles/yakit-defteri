@@ -4,9 +4,15 @@ name: Tanıtım seslendirmesi
 on:
   workflow_dispatch:
     inputs:
+      engine:
+        description: "edge ya da gemini"
+        default: "edge"
       voice:
-        description: "Ses (edge-tts)"
+        description: "Ses (edge: tr-TR-EmelNeural, gemini: Kore vb.)"
         default: "tr-TR-EmelNeural"
+      model:
+        description: "Gemini TTS modeli"
+        default: "gemini-3.8-flash-tts"
 
 permissions:
   contents: write
@@ -18,15 +24,30 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: tanitim
-      - run: pip install edge-tts==7.0.2
+      - run: pip install --upgrade edge-tts
       - name: Sesleri üret
         env:
           VOICE: ${{ inputs.voice }}
+          ENGINE: ${{ inputs.engine }}
+          MODEL: ${{ inputs.model }}
+          KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p tanitim/ses
           jq -c '.[]' tanitim/metin.json | while read -r row; do
             id=$(jq -r .id <<<"$row"); text=$(jq -r .text <<<"$row")
-            edge-tts --voice "$VOICE" --rate=+4% --text "$text" --write-media "tanitim/ses/$id.mp3"
+            if [ "$ENGINE" = edge ]; then
+              edge-tts --voice "$VOICE" --rate=+4% --text "$text" --write-media "tanitim/ses/$id.mp3"
+            else
+              for try in 1 2 3 4 5; do
+                jq -n --arg t "Samimi, sıcak ve akıcı bir tanıtım sesiyle Türkçe oku: $text" --arg v "$VOICE" \
+                  '{contents:[{parts:[{text:$t}]}],generationConfig:{response_modalities:["AUDIO"],speech_config:{voice_config:{prebuilt_voice_config:{voice_name:$v}}}}}' > b.json
+                code=$(curl -sS -m 120 -o o.json -w "%{http_code}" "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @b.json || echo 000)
+                echo "$id deneme $try: $code $(jq -r '.error.message // empty' o.json 2>/dev/null | cut -c1-150)"
+                [ "$code" = 200 ] && break; sleep 8
+              done
+              jq -r '.candidates[0].content.parts[0].inlineData.data' o.json | base64 -d > a.pcm
+              ffmpeg -loglevel error -y -f s16le -ar 24000 -ac 1 -i a.pcm -b:a 128k "tanitim/ses/$id.mp3"
+            fi
           done
           ls -la tanitim/ses
       - name: Dala ekle
