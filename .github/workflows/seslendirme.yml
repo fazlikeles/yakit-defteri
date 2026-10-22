@@ -1,0 +1,35 @@
+name: Tanıtım seslendirmesi
+
+# Elle çalıştırılır: tanitim dalındaki tanitim/metin.json metinlerini Türkçe sese çevirip aynı dala ekler.
+on:
+  workflow_dispatch:
+    inputs:
+      voice:
+        description: "Ses (edge-tts)"
+        default: "tr-TR-EmelNeural"
+
+permissions:
+  contents: write
+
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tanitim
+      - run: pip install edge-tts==7.0.2
+      - name: Sesleri üret
+        env:
+          VOICE: ${{ inputs.voice }}
+        run: |
+          mkdir -p tanitim/ses
+          jq -c '.[]' tanitim/metin.json | while read -r row; do
+            id=$(jq -r .id <<<"$row"); text=$(jq -r .text <<<"$row")
+            edge-tts --voice "$VOICE" --rate=+4% --text "$text" --write-media "tanitim/ses/$id.mp3"
+          done
+          ls -la tanitim/ses
+      - name: Dala ekle
+        run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tanitim/ses && git commit -m "Seslendirme dosyaları" && git push
