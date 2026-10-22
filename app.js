@@ -490,9 +490,9 @@ $('#rcFile').addEventListener('change',async e=>{
   const r=await scan(f,$('#rcScan'),'receipt');
   $('#rcCapture').hidden=false; $('#rcText').textContent=t('Okuma yanlışsa başka bir fotoğraf seçebilir ya da değerleri düzeltebilirsin.');
   if(!r) return;
-  let p=num(r.price_per_liter),l=num(r.liters),t=num(r.total);
-  if(!(l>0)&&p>0&&t>0) l=t/p; if(!(t>0)&&p>0&&l>0) t=p*l; if(!(p>0)&&l>0&&t>0) p=t/l;
-  setVal('price',p,2);setVal('liters',l,2);setVal('total',t,2);
+  let p=num(r.price_per_liter),l=num(r.liters),tot=num(r.total);
+  if(!(l>0)&&p>0&&tot>0) l=tot/p; if(!(tot>0)&&p>0&&l>0) tot=p*l; if(!(p>0)&&l>0&&tot>0) p=tot/l;
+  setVal('price',p,2);setVal('liters',l,2);setVal('total',tot,2);
   if(r.date&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)){const d=new Date(r.date+'T12:00');if(d<=new Date()&&d>new Date(Date.now()-60*864e5)) $('#date').value=r.date}
   validate1();
 });
