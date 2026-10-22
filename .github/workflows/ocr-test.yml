@@ -1,0 +1,41 @@
+name: Okuma servisi testi
+
+# Elle çalıştırılır: verilen küçük görüntüyü Gemini'ye gönderir, durum kodunu ve cevabı yazdırır.
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Base64 JPEG (küçük, kırpılmış)"
+        required: true
+      model:
+        description: "Model"
+        default: "gemini-2.5-flash"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.GEMINI_API_KEY }}
+      IMG: ${{ inputs.image }}
+      MODEL: ${{ inputs.model }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Modeller
+        run: |
+          curl -sS "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" -H "x-goog-api-key: $KEY" \
+            | jq -r '.models[]?.name, (.error.message // empty)' | grep -i -E "flash|error|key" | head -40
+      - name: Şemalı ve şemasız istek
+        run: |
+          PROMPT=$(sed -n '/receipt: `/,/`,/p' supabase/functions/read-image/index.ts | sed '1s/.*receipt: `//; $s/`,$//')
+          for schema in yes no; do
+            if [ $schema = yes ]; then GC='{"temperature":0,"response_mime_type":"application/json","response_schema":{"type":"OBJECT","properties":{"price_per_liter":{"type":"NUMBER","nullable":true},"liters":{"type":"NUMBER","nullable":true},"total":{"type":"NUMBER","nullable":true},"date":{"type":"STRING","nullable":true}},"required":["price_per_liter","liters","total","date"]}}'
+            else GC='{"temperature":0,"response_mime_type":"application/json"}'; fi
+            jq -n --arg p "$PROMPT" --arg img "$IMG" --argjson gc "$GC" '{contents:[{parts:[{text:$p},{inline_data:{mime_type:"image/jpeg",data:$img}}]}],generationConfig:$gc}' > body.json
+            echo "== şema: $schema =="
+            curl -sS -o out.json -w "HTTP %{http_code}\n" "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" \
+              -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @body.json
+            jq -c '{error:.error.message, finish:.candidates[0].finishReason, text:(.candidates[0].content.parts // [] | map(.text // "") | join(""))}' out.json
+          done
