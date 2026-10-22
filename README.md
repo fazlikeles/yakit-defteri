@@ -56,5 +56,5 @@ Depoda **Settings › Secrets and variables › Actions › New repository secre
 ## Sınırlar
 
 - Fotoğraf okuma kişi başı günde 30 kez yapılabilir (`OCR_DAILY_LIMIT` Supabase sırrıyla değiştirilebilir).
-- Gemini modelleri sırayla denenir: `gemini-3.8-flash`, `gemini-3.5-flash`, `gemini-3.1-flash-lite` (biri kaldırılmış ya da yoğunsa sıradakine geçilir). Önce başka bir model denensin istersen Supabase'de `GEMINI_MODEL` sırrını ayarla.
+- Gemini modelleri sırayla denenir: `gemini-3.5-flash` (iki kez), `gemini-3.1-flash-lite`, `gemini-3.8-flash`. Her deneme en fazla 10 saniye sürer. Önce başka bir model denensin istersen Supabase'de `GEMINI_MODEL` sırrını ayarla.
 - "Confirm email" kapalıyken şifre yenileme e-postaları da yalnızca proje ekibine gider. Şifresini unutan biri olursa Supabase › Authentication › Users ekranından şifresini sıfırlayabilirsin.

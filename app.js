@@ -429,7 +429,10 @@ const toB64=blob=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>
 
 // 1. yol: sunucudaki okuma servisi (Gemini)
 async function readOnServer(blob,kind){
-  const {data,error}=await sb.functions.invoke('read-image',{body:{kind,mime:blob.type||'image/jpeg',image:await toB64(blob)}});
+  const call=sb.functions.invoke('read-image',{body:{kind,mime:blob.type||'image/jpeg',image:await toB64(blob)}});
+  // Servis 45 sn içinde cevap vermezse vazgeç; telefonda okuma ya da elle giriş devreye girer
+  const timeout=new Promise(r=>setTimeout(()=>r({data:null,error:{context:null,timeout:true}}),45000));
+  const {data,error}=await Promise.race([call,timeout]);
   if(error){let code='';try{code=(await error.context?.json?.())?.error}catch(e){} const er=new Error(code||'server');er.code=code;throw er}
   return data;
 }

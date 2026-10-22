@@ -3,8 +3,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const DAILY_LIMIT = Number(Deno.env.get("OCR_DAILY_LIMIT") ?? "30");
-// Sırayla denenir: model kaldırılmışsa (404) ya da yoğunsa (429/503) bir sonrakine geçilir
-const MODELS = [...new Set([Deno.env.get("GEMINI_MODEL"), "gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"].filter(Boolean) as string[])];
+// Sırayla denenir. Her deneme en fazla 10 sn sürer; hata ya da zaman aşımında sıradakine geçilir.
+// gemini-3.5-flash düşünmesiz ~1 sn'de doğru okuyor; 3.8-flash yoğunlukta dakikalarca cevap vermeyebiliyor.
+const ENV_MODEL = Deno.env.get("GEMINI_MODEL");
+const ATTEMPTS: { model: string; thinking?: Record<string, unknown> }[] = [
+  ...(ENV_MODEL ? [{ model: ENV_MODEL }] : []),
+  { model: "gemini-3.5-flash", thinking: { thinking_budget: 0 } },
+  { model: "gemini-3.5-flash", thinking: { thinking_budget: 0 } },
+  { model: "gemini-3.1-flash-lite", thinking: { thinking_budget: 0 } },
+  { model: "gemini-3.8-flash", thinking: { thinking_level: "low" } },
+];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -68,20 +76,28 @@ Deno.serve(async (req) => {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return json({ error: "not_configured" }, 500);
 
-  const payload = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: body.image } }] }],
-    generationConfig: { temperature: 0, response_mime_type: "application/json", response_schema: SCHEMAS[body.kind!] },
-  });
+  const today = new Date().toISOString().slice(0, 10);
   let res: Response | null = null;
-  for (const model of MODELS) {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: payload,
-    });
-    if (res.ok) { console.log("model", model); break; }
-    console.error("gemini", model, res.status, (await res.text()).slice(0, 300));
-    if (![404, 429, 500, 503].includes(res.status)) break;
+  for (const a of ATTEMPTS) {
+    const generationConfig: Record<string, unknown> = { temperature: 0, response_mime_type: "application/json", response_schema: SCHEMAS[body.kind!] };
+    if (a.thinking) generationConfig.thinking_config = a.thinking;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${a.model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${prompt}\nBugünün tarihi: ${today}.` }, { inline_data: { mime_type: mime, data: body.image } }] }],
+          generationConfig,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (e) {
+      console.error("gemini", a.model, "zaman aşımı", String(e).slice(0, 100));
+      res = null;
+      continue;
+    }
+    if (res.ok) { console.log("model", a.model); break; }
+    console.error("gemini", a.model, res.status, (await res.text()).slice(0, 200));
   }
   if (!res || !res.ok) return json({ error: res?.status === 429 ? "upstream_limit" : "upstream" }, 502);
   const out = await res.json();
