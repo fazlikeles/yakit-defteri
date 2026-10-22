@@ -22,7 +22,7 @@ jobs:
             curl -sS -G "https://api.supabase.com/v1/projects/$REF/analytics/endpoints/logs.all" \
               -H "Authorization: Bearer $TOKEN" \
               --data-urlencode "sql=$1" --data-urlencode "iso_timestamp_start=$start" --data-urlencode "iso_timestamp_end=$end" \
-              | jq -r '.result[]? | "\(.timestamp/1000000 | todate)  \(.event_message | gsub("https://[^ ]+"; "") | .[0:400])"' 
+              | jq -r 'if .result then (.result | length | "(\(.) kayıt)"), (.result[] | "\(.timestamp/1000000 | floor | todate)  \(.event_message | gsub("https://[^ ]+"; "") | .[0:400])") else "Hata: \(.error // . | tostring | .[0:300])" end'
           }
           echo "== Çağrılar (zaman, yöntem, durum) =="
           q "select timestamp, event_message from function_edge_logs order by timestamp desc limit 40"
