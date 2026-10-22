@@ -1,11 +1,7 @@
 [
- {"id":"01-giris","text":"Yakıt Defteri ile aracının yakıt tüketimini kolayca takip edebilirsin. Telefonunda uygulama gibi çalışır. Hesabınla giriş yaptığın için verilerin kaybolmaz, hangi cihazdan girersen gir aynı kayıtları görürsün."},
- {"id":"02-panel","text":"Panelde yüz kilometrede ortalama tüketimini, son deponu ve kilometre başına maliyetini görürsün. Hemen altında bu ayki kilometre ve harcama, toplam yol ve toplam harcama yer alır."},
- {"id":"03-grafik","text":"Grafiklerde tüketiminin depodan depoya nasıl değiştiğini, aylık kilometre ve harcamanı, litre fiyatının seyrini izleyebilirsin."},
- {"id":"04-fis","text":"Yakıt aldığında ortadaki artı düğmesine dokun ve fişin fotoğrafını çek. Litre fiyatı, litre ve toplam tutar fişten otomatik okunur."},
- {"id":"05-km","text":"Ardından kilometre sayacının fotoğrafını çek, ya da kilometreyi kendin yaz."},
- {"id":"06-ozet","text":"Özette bu deponun tüketimini ve ortalamana göre farkını görüp kaydedersin. Depoyu fullemediysen işareti kaldırman yeterli, hesap bir sonraki full dolumda yapılır."},
- {"id":"07-kayitlar","text":"Kayıtlar ekranında bütün dolumların listelenir. Bir kayda dokunup düzeltebilir ya da silebilirsin."},
- {"id":"08-aracim","text":"Aracım ekranında araç bilgilerini düzenleyebilir, yeni araç ekleyebilir, verilerini Excel'de açılan bir dosya olarak indirebilir ve dili değiştirebilirsin."},
- {"id":"09-kapanis","text":"Hemen hesabını oluştur, ilk dolumunu ekle ve tüketimini takip etmeye başla. Yakıt Defteri, iyi yolculuklar!"}
+ {"id":"k1-giris","text":"Yakıt Defteri ile aracının yakıt tüketimini zahmetsizce takip et."},
+ {"id":"k2-fis","text":"Fişin fotoğrafını çek; litre, fiyat ve tutar otomatik okunsun."},
+ {"id":"k3-km","text":"Kilometre sayacını da çek, ya da kendin yaz."},
+ {"id":"k4-panel","text":"Yüz kilometrede tüketimini, harcamanı ve aylık trendlerini anında gör."},
+ {"id":"k5-kapanis","text":"Ücretsiz, hesabınla güvende. Hemen dene!"}
 ]
