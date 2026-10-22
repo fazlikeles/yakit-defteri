@@ -381,6 +381,7 @@ function openEdit(id){
   <p class="err" id="eErr" hidden></p>
   <button class="btn" id="eSave">${t('Değişiklikleri kaydet')}</button>
   <button class="btn danger" id="eDel">${t('Kaydı sil')}</button>`);
+  kmMask($('#eOdo'));
   const err=m=>{$('#eErr').textContent=m;$('#eErr').hidden=false};
   $('#eSave').addEventListener('click',async()=>{
     const odo=Math.round(parse($('#eOdo').value)),l=parse($('#eLit').value),p=parse($('#ePrice').value),tot=parse($('#eTot').value);
@@ -533,6 +534,14 @@ $('#to2').addEventListener('click',()=>setStep(2));
 $('#back1').addEventListener('click',()=>setStep(1));
 $('#back2').addEventListener('click',()=>setStep(2));
 const lastOdo=()=>fills.length?fills[fills.length-1].odo:null;
+// Km yazılırken binlik ayırıcı eklenir: 78882 → 78.882 (imleç yerinde kalır)
+function kmMask(el){el.addEventListener('input',()=>{
+  const pos=el.selectionStart??el.value.length, before=el.value.slice(0,pos).replace(/\D/g,'').length;
+  const d=el.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,7); el.value=d?f0.format(+d):'';
+  let i=0,c=0; while(i<el.value.length&&c<before){if(/\d/.test(el.value[i]))c++;i++}
+  try{el.setSelectionRange(i,i)}catch(e){}
+})}
+kmMask($('#odo'));
 $('#odo').addEventListener('input',()=>{$('#fOdo').classList.remove('ok');validate2()});
 function validate2(){const v=parse($('#odo').value);const lo=lastOdo();const ok=v>0&&(lo==null||v>lo);
   $('#to3').disabled=!ok;
