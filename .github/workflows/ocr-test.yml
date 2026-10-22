@@ -9,7 +9,7 @@ on:
         required: true
       model:
         description: "Model"
-        default: "gemini-2.5-flash"
+        default: "gemini-3.8-flash"
 
 permissions:
   contents: read

@@ -3,7 +3,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const DAILY_LIMIT = Number(Deno.env.get("OCR_DAILY_LIMIT") ?? "30");
-const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+// Sırayla denenir: model kaldırılmışsa (404) ya da yoğunsa (429/503) bir sonrakine geçilir
+const MODELS = [...new Set([Deno.env.get("GEMINI_MODEL"), "gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"].filter(Boolean) as string[])];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -67,18 +68,22 @@ Deno.serve(async (req) => {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return json({ error: "not_configured" }, 500);
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: body.image } }] }],
-      generationConfig: { temperature: 0, response_mime_type: "application/json", response_schema: SCHEMAS[body.kind!] },
-    }),
+  const payload = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: body.image } }] }],
+    generationConfig: { temperature: 0, response_mime_type: "application/json", response_schema: SCHEMAS[body.kind!] },
   });
-  if (!res.ok) {
-    console.error("gemini", res.status, await res.text());
-    return json({ error: res.status === 429 ? "upstream_limit" : "upstream" }, 502);
+  let res: Response | null = null;
+  for (const model of MODELS) {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: payload,
+    });
+    if (res.ok) { console.log("model", model); break; }
+    console.error("gemini", model, res.status, (await res.text()).slice(0, 300));
+    if (![404, 429, 500, 503].includes(res.status)) break;
   }
+  if (!res || !res.ok) return json({ error: res?.status === 429 ? "upstream_limit" : "upstream" }, 502);
   const out = await res.json();
   const text: string = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   let raw: Record<string, unknown>;
