@@ -179,7 +179,7 @@ function show(id,scrollTo){
   closeSheet();
   $$('.screen').forEach(s=>s.hidden=s.id!==id);
   $('#tabs').hidden=!['dash','list','add','car'].includes(id);
-  $$('.tab').forEach(t=>{const on=t.dataset.go===id&&!t.dataset.scroll&&id!=='add'; on?t.setAttribute('aria-current','page'):t.removeAttribute('aria-current')});
+  $$('.tab').forEach(t=>{const on=t.dataset.go===id&&(t.dataset.scroll||'')===(scrollTo||'')&&id!=='add'; on?t.setAttribute('aria-current','page'):t.removeAttribute('aria-current')});
   if(id==='add') resetAdd();
   if(scrollTo){const el=document.getElementById(scrollTo); if(el&&!el.hidden) el.scrollIntoView({behavior:'smooth',block:'center'})} else window.scrollTo(0,0);
 }
