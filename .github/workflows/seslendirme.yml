@@ -39,18 +39,20 @@ jobs:
               edge-tts --voice "$VOICE" --rate=+4% --text "$text" --write-media "tanitim/ses/$id.mp3"
             else
               for try in 1 2 3 4 5; do
-                jq -n --arg t "Samimi, sıcak ve akıcı bir tanıtım sesiyle Türkçe oku: $text" --arg v "$VOICE" \
+                jq -n --arg t "Arkadaşına bir uygulamayı öneren biri gibi doğal, samimi ve rahat bir tonla, abartmadan, günlük konuşma hızında Türkçe söyle: $text" --arg v "$VOICE" \
                   '{contents:[{parts:[{text:$t}]}],generationConfig:{response_modalities:["AUDIO"],speech_config:{voice_config:{prebuilt_voice_config:{voice_name:$v}}}}}' > b.json
                 code=$(curl -sS -m 120 -o o.json -w "%{http_code}" "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent" -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @b.json || echo 000)
                 echo "$id deneme $try: $code $(jq -r '.error.message // empty' o.json 2>/dev/null | cut -c1-150)"
                 [ "$code" = 200 ] && break; sleep 8
               done
+              mkdir -p "tanitim/ses-$VOICE"
               jq -r '.candidates[0].content.parts[0].inlineData.data' o.json | base64 -d > a.pcm
-              ffmpeg -loglevel error -y -f s16le -ar 24000 -ac 1 -i a.pcm -b:a 128k "tanitim/ses/$id.mp3"
+              python3 -c "import wave,sys;w=wave.open(sys.argv[1],'wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes(open('a.pcm','rb').read());w.close()" "tanitim/ses-$VOICE/$id.wav"
+              sleep 4
             fi
           done
           ls -la tanitim/ses
       - name: Dala ekle
         run: |
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tanitim/ses && git commit -m "Seslendirme dosyaları" && git push
+          git add tanitim && git commit -m "Seslendirme dosyaları" && git push
