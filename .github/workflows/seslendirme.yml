@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       engine:
-        description: "edge ya da gemini"
+        description: "edge, gemini ya da gemini-tek"
         default: "edge"
       voice:
         description: "Ses (edge: tr-TR-EmelNeural, gemini: Kore vb.)"
@@ -35,6 +35,7 @@ jobs:
           mkdir -p tanitim/ses
           jq -c '.[]' tanitim/metin.json | while read -r row; do
             id=$(jq -r .id <<<"$row"); text=$(jq -r .text <<<"$row")
+            if [ "$ENGINE" = gemini-tek ]; then break; fi
             if [ "$ENGINE" = edge ]; then
               edge-tts --voice "$VOICE" --rate=+4% --text "$text" --write-media "tanitim/ses/$id.mp3"
             else
@@ -52,6 +53,26 @@ jobs:
             fi
           done
           ls -la tanitim/ses
+      - name: Tek istekte tüm metin (Gemini)
+        if: ${{ inputs.engine == 'gemini-tek' }}
+        env:
+          VOICE: ${{ inputs.voice }}
+          MODEL: ${{ inputs.model }}
+          KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p "tanitim/tek-$VOICE"
+          TEXT=$(jq -r 'map(.text) | join("\n\n")' tanitim/metin.json)
+          for m in $MODEL gemini-3.1-flash-tts-preview gemini-3.8-flash-lite-tts; do
+            jq -n --arg t "Say the following Turkish text in a natural, warm, relaxed and conversational way, like casually recommending an app to a friend. Pause briefly between paragraphs:\n\n$TEXT" --arg v "$VOICE" \
+              '{contents:[{parts:[{text:$t}]}],generationConfig:{response_modalities:["AUDIO"],speech_config:{voice_config:{prebuilt_voice_config:{voice_name:$v}}}}}' > b.json
+            code=$(curl -sS -m 180 -o o.json -w "%{http_code}" "https://generativelanguage.googleapis.com/v1beta/models/$m:generateContent" -H "x-goog-api-key: $KEY" -H "Content-Type: application/json" --data @b.json || echo 000)
+            echo "$m: $code $(jq -r '.error.message // empty' o.json 2>/dev/null | cut -c1-200)"
+            if [ "$code" = 200 ]; then
+              jq -r '.candidates[0].content.parts[0].inlineData.data' o.json | base64 -d > a.pcm
+              python3 -c "import wave,sys;w=wave.open(sys.argv[1],'wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes(open('a.pcm','rb').read());w.close()" "tanitim/tek-$VOICE/tum.wav"
+              echo "$m" > "tanitim/tek-$VOICE/model.txt"; break
+            fi
+          done
       - name: Dala ekle
         run: |
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
