@@ -1,0 +1,32 @@
+name: Hesabı elle doğrula
+
+# Elle çalıştırılır: doğrulama maili ulaşmayan bir kullanıcının e-postasını doğrulanmış yapar.
+# Depo herkese açık olduğu için e-posta yerine e-postanın SHA-256 özeti girilir:
+#   printf '%s' 'ornek@gmail.com' | sha256sum
+on:
+  workflow_dispatch:
+    inputs:
+      email_sha256:
+        description: "Küçük harfli e-postanın SHA-256 özeti"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      H: ${{ inputs.email_sha256 }}
+    steps:
+      - name: Doğrula
+        run: |
+          KEY=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys?reveal=true" -H "Authorization: Bearer $TOKEN" | jq -r '[.[] | select(.name=="service_role" or .type=="secret")][0].api_key')
+          echo "::add-mask::$KEY"
+          curl -sS "https://$REF.supabase.co/auth/v1/admin/users?per_page=1000" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | jq -r '.users[] | "\(.id) \(.email | ascii_downcase)"' > users.txt
+          ID=""; while read -r id em; do [ "$(printf '%s' "$em" | sha256sum | cut -d' ' -f1)" = "$H" ] && ID=$id; done < users.txt
+          if [ -z "$ID" ]; then echo "Bu e-postayla kullanıcı bulunamadı"; exit 1; fi
+          curl -sS -X PUT "https://$REF.supabase.co/auth/v1/admin/users/$ID" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"email_confirm":true}' \
+            | jq -r '"doğrulandı: \(.email_confirmed_at // "HAYIR")  kayıt: \(.created_at[0:16])"'
