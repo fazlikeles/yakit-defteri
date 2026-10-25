@@ -1,0 +1,24 @@
+name: Kullanım raporu
+
+# Elle çalıştırılır: supabase/raporlar/kullanim.sql sorgusunu çalıştırır.
+# Depo herkese açık olduğu için e-postalar maskelenir. Tam halini Supabase › SQL Editor'de görebilirsin.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rapor
+        run: |
+          Q=$(sed 's/^  u.email,/  regexp_replace(u.email, '"'"'^(..)[^@]*'"'"', '"'"'\\1***'"'"') as email,/' supabase/raporlar/kullanim.sql | grep -v '^--')
+          jq -n --arg q "$Q" '{query:$q}' > q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$REF/database/query" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data @q.json \
+            | jq -r 'if type=="array" then (.[] | "\(.email)  kayıt:\(.kayit)  doğrulandı:\(.dogrulandi)  son_giriş:\(.son_giris // "-")  araç:\(.arac)  dolum:\(.dolum)  son_dolum:\(.son_dolum // "-" | .[0:16])  foto_toplam:\(.foto_okuma_toplam)  foto_7gün:\(.foto_okuma_7gun)") else . end'
