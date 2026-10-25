@@ -1,0 +1,27 @@
+name: Kayıt kontrolü
+
+# Elle çalıştırılır: kullanıcıların doğrulama durumunu ve e-posta (SMTP) ayarlarını gösterir.
+# Depo herkese açık olduğu için e-posta adresleri maskelenir, şifreler yazdırılmaz.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: E-posta ayarları
+        run: |
+          curl -sS "https://api.supabase.com/v1/projects/$REF/config/auth" -H "Authorization: Bearer $TOKEN" \
+            | jq '{site_url, uri_allow_list, mailer_autoconfirm, external_email_enabled, disable_signup, smtp_host, smtp_port, smtp_admin_email: (.smtp_admin_email // "" | sub("^[^@]{0,3}[^@]*"; "***")), smtp_user_set: (.smtp_user != null and .smtp_user != ""), smtp_pass_set: (.smtp_pass != null), smtp_max_frequency, rate_limit_email_sent, mailer_otp_exp}'
+      - name: Kullanıcılar
+        run: |
+          KEY=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys?reveal=true" -H "Authorization: Bearer $TOKEN" | jq -r '[.[] | select(.name=="service_role" or .type=="secret")][0].api_key')
+          echo "::add-mask::$KEY"
+          curl -sS "https://$REF.supabase.co/auth/v1/admin/users?per_page=200" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            | jq -r '.users | sort_by(.created_at) | .[] | "\(.email | sub("^(?<a>..)[^@]*"; "\(.a)***"))  kayıt:\(.created_at[0:16])  mail_gönderildi:\(.confirmation_sent_at // "-" | .[0:16])  doğrulandı:\(.email_confirmed_at // "HAYIR" | .[0:16])  son_giriş:\(.last_sign_in_at // "-" | .[0:16])"'
