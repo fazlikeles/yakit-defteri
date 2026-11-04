@@ -1,0 +1,33 @@
+name: Supabase'i canlı tut
+
+# Ücretsiz Supabase projesi 7 gün hareketsiz kalınca uyutulur.
+# Bu iş 2 günde bir veritabanına küçük bir istek atarak projeyi aktif tutar.
+on:
+  schedule:
+    - cron: "17 6 */2 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Veritabanına istek at
+        run: |
+          set -e
+          KEY=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys" -H "Authorization: Bearer $TOKEN" \
+            | jq -r '[.[] | select(.type=="publishable" or .name=="anon")][0].api_key')
+          echo "::add-mask::$KEY"
+          # REST API üzerinden gerçek bir sorgu (RLS nedeniyle boş liste döner, ama veritabanına gider)
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://$REF.supabase.co/rest/v1/cars?select=id&limit=1" -H "apikey: $KEY")
+          echo "REST sorgusu: HTTP $code"
+          # Yönetim API'si üzerinden de küçük bir SQL sorgusu
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$REF/database/query" -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" -d '{"query":"select count(*) as kullanici from auth.users"}' | jq -c .
+          curl -sS "https://api.supabase.com/v1/projects/$REF" -H "Authorization: Bearer $TOKEN" | jq -r '"Proje durumu: \(.status)"'
+          [ "$code" = 200 ]
