@@ -186,7 +186,7 @@ function show(id,scrollTo){
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-go]'); if(b){e.preventDefault();show(b.dataset.go,b.dataset.scroll);return}
   const r=e.target.closest('[data-edit]'); if(r){openEdit(r.dataset.edit);return}
-  const a=e.target.closest('[data-act]'); if(a){({export:doExport,cars:openCars,addcar:()=>openSetup(true),editcar:openEditCar})[a.dataset.act]?.()}
+  const a=e.target.closest('[data-act]'); if(a){({export:doExport,cars:openCars,addcar:()=>openSetup(true),editcar:openEditCar,admin:openAdmin})[a.dataset.act]?.()}
 });
 let tt; function toast(msg){let t=$('.toast'); if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)} t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2800)}
 function dbErr(e){console.error(e);return navigator.onLine===false?t('İnternet bağlantısı yok. Bağlanınca tekrar dene.'):t('Kaydedilemedi. Tekrar dene.')}
@@ -296,9 +296,28 @@ async function startSession(user){
   if(S.recovering){show('newpass');return}
   $('#bootMsg').textContent=t('Kayıtların yükleniyor…'); show('boot');
   try{await loadCars()}catch(e){console.error(e);$('#bootMsg').textContent=t('Kayıtlar yüklenemedi. Sayfayı yenileyip tekrar dene.');return}
+  checkAdmin();
   if(!S.cars.length){openSetup(false);return}
   await selectCar(store.get('yd-car'));
   show('dash');
+}
+// Yönetici menüsü: yetkiyi sunucu kontrol eder, burada sadece görünürlük
+async function checkAdmin(){
+  $('#adminBox').hidden=true;
+  try{const {data,error}=await sb.rpc('is_admin'); if(!error&&data===true) $('#adminBox').hidden=false}catch(e){}
+}
+async function openAdmin(){
+  openSheet(sheetHead(t('Kullanım istatistikleri'))+`<p class="note">${t('Yükleniyor…')}</p>`);
+  const {data,error}=await sb.rpc('admin_usage');
+  if(error){console.error(error);openSheet(sheetHead(t('Kullanım istatistikleri'))+`<p class="err">${t('İstatistikler alınamadı.')}</p>`);return}
+  const sum=k=>data.reduce((a,r)=>a+Number(r[k]||0),0);
+  const d=v=>v?fmtDate(new Date(v)):'–';
+  const kp=[[data.length,t('Hesap')],[data.filter(r=>r.confirmed).length,t('Doğrulanmış')],[data.filter(r=>r.last_sign_in).length,t('Giriş yapan')],
+    [sum('cars'),t('Araç')],[sum('fills'),t('Dolum')],[sum('ocr_total'),t('Fotoğraf okuma')]];
+  const rows=data.slice().reverse().map(r=>`<div class="row"><div class="mid"><b>${esc(r.email)}</b><div>${t('Kayıt')}: ${d(r.created_at)} · ${t('Son giriş')}: ${d(r.last_sign_in)}${r.confirmed?'':' · '+t('doğrulanmadı')}</div></div><div class="right num">${f0.format(r.cars)} ${t('araç')}<br>${f0.format(r.fills)} ${t('dolum')} · ${f0.format(r.ocr_total)} ${t('foto')}</div></div>`).join('');
+  openSheet(sheetHead(t('Kullanım istatistikleri'))+`<div class="kpis">${kp.map(([v,l])=>`<div><b>${f0.format(v)}</b><span>${l}</span></div>`).join('')}</div>
+  <p class="note">${t('Son 7 günde fotoğraf okuma')}: ${f0.format(sum('ocr_7d'))}</p>
+  <div class="list settings">${rows}</div>`);
 }
 
 /* araç ekleme */
